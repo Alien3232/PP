@@ -1,0 +1,81 @@
+    Public ObjFolder As Object
+    Public objFso As Object
+    Public objFdLoop As Object
+    Public rwCount As Long
+    Dim objFl As Object
+    
+Sub GetFolderStructure()
+  On Error Resume Next
+    rwCount = 1
+    Set objFso = CreateObject("Scripting.FileSystemObject")
+    With Application.FileDialog(msoFileDialogFolderPicker)
+    .Title = "Please select a folder to list Files from:"
+    '.InitialFileName = "C:\"
+    .Show
+    If .SelectedItems.Count <> 0 Then
+    Set ObjFolder = objFso.GetFolder(.SelectedItems(1))
+    Else
+    End
+    End If
+    End With
+    Application.Wait (Now + TimeValue("0:00:01"))
+    Application.ScreenUpdating = False
+    ActiveSheet.UsedRange.ClearContents
+    'Range("D1").Value = Now
+    ActiveSheet.UsedRange.Interior.Color = xlNone
+    Range("A3:D3").Value = Array("Folder", "Files", "Folder Size in MB", "File Last Modified")
+    Range("A3:D3").Interior.Color = RGB(141, 180, 226)
+    'Range("C1").Value = "Start:"
+    Range("C1").Value = "List Last Updated:"
+    Range("A3").Offset(rwCount).Value = ObjFolder.Path
+    
+    ActiveSheet.Hyperlinks.Add Anchor:=Range("A3").Offset(rwCount), Address:=ObjFolder.Path, SubAddress:= _
+    "", TextToDisplay:=ObjFolder.Path
+
+    Range("A3").Offset(rwCount, 2).Value = Format(ObjFolder.Size / 1048576, "Fixed")
+    For Each objFl In ObjFolder.Files
+            If (objFl.Attributes And vbHidden) = 0 Then
+              Range("A3").Offset(rwCount, 1).Value = objFl.Name
+              Range("A3").Offset(rwCount, 3).Value = objFl.DateLastModified
+              rwCount = rwCount + 1
+            End If
+    Next
+    LoopFolder ObjFolder
+    Range("D1").Value = Now
+    Application.ScreenUpdating = True
+    Set objFl = Nothing
+    Set objFdLoop = Nothing
+    Set ObjFolder = Nothing
+    Set objFso = Nothing
+    lnCounter = 0
+    ActiveSheet.Cells(4, 1).Select
+    MsgBox "Directory Structure Download Complete", vbInformation, "Directory Structure"
+    
+End Sub
+
+Function LoopFolder(fldFolder As Object)
+
+    For Each objFdLoop In fldFolder.subfolders
+On Error Resume Next
+    If (objFdLoop.Attributes And vbHidden) = 0 Then
+    rwCount = rwCount + 1
+    Range("A3").Offset(rwCount).Value = objFdLoop.Path
+    ActiveSheet.Hyperlinks.Add Anchor:=Range("A3").Offset(rwCount), Address:=objFdLoop.Path, SubAddress:= _
+    "", TextToDisplay:=objFdLoop.Path
+    
+    Range("A3").Offset(rwCount, 2).Value = Format(objFdLoop.Size / 1048576, "Fixed")
+            For Each objFl In objFdLoop.Files
+             If (objFl.Attributes And vbHidden) = 0 Then
+                Range("A3").Offset(rwCount, 1).Value = objFl.Name
+                Range("A3").Offset(rwCount, 3).Value = objFl.DateLastModified
+                rwCount = rwCount + 1
+             End If
+
+             Next
+    End If
+    LoopFolder objFdLoop
+
+    Next
+
+End Function
+
