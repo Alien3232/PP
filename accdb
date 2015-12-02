@@ -1,0 +1,133 @@
+Private Sub CmdDelete_Click()
+    'Call Delete Record
+    If txtID.Text = "" Then
+    MsgBox "Enter ID"
+    Else
+    Call DeleteRecord
+    MsgBox "Record Deleted Successfully"
+    Call cmdReset_Click
+    End If
+End Sub
+
+Private Sub CmdInsert_Click()
+    'Call Insert Data
+    If txtID.Text = "" Then
+    MsgBox "Enter ID"
+    ElseIf Not IsNumeric(txtID.Value) Then
+    MsgBox ("Sorry, must enter a number")
+    txtID.Text = ""
+    ElseIf txtEmpNo.Text = "" Then
+    MsgBox "Enter Employee Number"
+    ElseIf Not IsNumeric(txtEmpNo.Value) Then
+    MsgBox ("Sorry, must enter a number")
+    txtEmpNo.Text = ""
+    ElseIf txtEmpName.Text = "" Then
+    MsgBox "Enter Employee Name"
+    ElseIf txtRole.Text = "" Then
+    MsgBox "Enter Employee Role"
+    Else
+    Call InsertData
+    MsgBox "Record Inserted Successfully"
+    Call cmdReset_Click
+    End If
+End Sub
+
+Private Sub cmdReset_Click()
+'Resetting all the fields
+    txtEmpName.Text = ""
+    txtEmpNo.Text = ""
+    txtID.Text = ""
+    txtRole.Text = ""
+End Sub
+
+Private Sub CmdSelect_Click()
+ 'Call Select Data
+    If txtID.Text = "" Then
+    MsgBox "Enter ID to select data"
+    Else
+    Call SelectData
+    End If
+End Sub
+
+Private Sub cmdUpdate_Click()
+    'Call Update Data
+    If txtID.Text = "" And txtEmpNo.Text = "" And txtEmpName.Text = "" And txtRole.Text = "" Then
+    MsgBox "You must enter all the fields to update data"
+    ElseIf Not IsNumeric(txtID.Text) Then
+    MsgBox "You must Enter a Number"
+    ElseIf Not IsNumeric(txtEmpNo.Text) Then
+    MsgBox "You must Enter a Number"
+    Else
+    Call UpdateData
+    MsgBox "Record Updated Successfully"
+    Call cmdReset_Click
+    End If
+End Sub
+
+Sub InsertData()
+    Dim strSql As String
+    Dim rs As Object
+    Dim strConnection As String
+    Set Connection = CreateObject("ADODB.Connection")
+    strConnection = "Provider=Microsoft.ACE.OLEDB.12.0;" & _
+    "Data Source=" & ThisWorkbook.Path & "\Employee.accdb"
+    strSql = "INSERT INTO Employeedetails (ID,EmployeeNo,EmployeeName,Role) VALUES('" & txtID.Text & "' ,'" & txtEmpNo.Text & "','" & txtEmpName.Text & "','" & txtRole.Text & "');"
+    Connection.Open strConnection
+    Set rs = Connection.Execute(strSql)
+    Set rs = Nothing
+    Connection.Close
+    Set Connection = Nothing
+End Sub
+
+Sub DeleteRecord()
+    Dim strSql As String
+    Dim rs As Object
+    Dim strConnection As String
+    Set Connection = CreateObject("ADODB.Connection")
+    strConnection = "Provider=Microsoft.ACE.OLEDB.12.0;" & _
+    "Data Source=" & ThisWorkbook.Path & "\Employee.accdb"
+    strSql = "DELETE FROM Employeedetails WHERE ID=" + txtID.Text + ""
+    Connection.Open strConnection
+    Set rs = Connection.Execute(strSql)
+    Set rs = Nothing
+    Connection.Close
+    Set Connection = Nothing
+End Sub
+Sub UpdateData()
+    Dim strSql As String
+    Dim rs As Object
+    Dim strConnection As String
+    Set Connection = CreateObject("ADODB.Connection")
+    strConnection = "Provider=Microsoft.ACE.OLEDB.12.0;" & _
+    "Data Source=" & ThisWorkbook.Path & "\Employee.accdb"
+    strSql = "UPDATE Employeedetails SET EmployeeName='" + txtEmpName.Text + "',EmployeeNo=" + txtEmpNo.Text + ",Role='" + txtRole.Text + "'WHERE ID=" + txtID.Text
+    Connection.Open strConnection
+    Set rs = Connection.Execute(strSql)
+    Set rs = Nothing
+    Connection.Close
+    Set Connection = Nothing
+End Sub
+
+Sub SelectData()
+    Dim strSql As String
+    Dim rs As Object
+    Dim strConnection As String
+    Set Connection = CreateObject("ADODB.Connection")
+    strConnection = "Provider=Microsoft.ACE.OLEDB.12.0;" & _
+    "Data Source=" & ThisWorkbook.Path & "\Employee.accdb"
+    strSql = "Select ID,EmployeeNo,EmployeeName,Role FROM EmployeeDetails WHERE ID=" + txtID.Text
+    Connection.Open strConnection
+    Set rs = Connection.Execute(strSql)
+    Do While Not rs.EOF
+    txtEmpNo.Text = rs(1)
+    txtEmpName.Text = rs(2)
+    txtRole.Text = rs(3)
+    rs.MoveNext
+    Loop
+    Set rs = Nothing
+    Connection.Close
+    Set Connection = Nothing
+End Sub
+
+
+
