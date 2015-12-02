@@ -1,0 +1,456 @@
+Dim gQCConnection
+Dim aFieldList()
+Dim j
+Dim steps
+
+
+
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  QCConnect
+'Function Description:  This function opens a connection to Quality Center
+'-----------------------------------------------------------------------------------------------------
+Function QCConnect()
+
+Const xlLeft = -4131
+Const xlRight = -4152
+Const xlCenter = -4108
+Const xlGeneral = 1
+
+'Return the TDConnection object.
+Set gQCConnection = CreateObject("TDApiOle80.TDConnection")
+
+Dim sUserName, sPassword
+'Retrieve Username, Password and URL
+sUserName = ActiveSheet.Cells(5, 2)
+sPassword = ActiveSheet.Cells(6, 2)
+URL = ActiveSheet.Cells(2, 2)
+
+'Connect to Quality Center
+
+gQCConnection.InitConnectionEx URL
+gQCConnection.Login sUserName, sPassword
+
+'Authentication Failed
+If (gQCConnection.LoggedIn <> True) Then
+MsgBox "QC User Authentication Failed"
+WScript.Quit
+End If
+
+'Retrieve Domain and Project
+Dim sDomain, sProject
+sDomain = ActiveSheet.Cells(3, 2)
+sProject = ActiveSheet.Cells(4, 2)
+
+'Connect to Project
+gQCConnection.Connect sDomain, sProject
+
+'Failed to connect to desired project
+If (gQCConnection.Connected <> True) Then
+MsgBox "QC Project Failed to Connect to " & sProject
+WScript.Quit
+End If
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+End Function
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  QCDisconnect()
+'Function Description:  This function diconnects Quality Center
+'-----------------------------------------------------------------------------------------------------
+Function QCDisconnect()
+'Disconnect QC
+
+End Function
+
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  Button1_Click()
+'Function Description:  This function connects to Quality Center and calls the ExportTestCases function
+'-----------------------------------------------------------------------------------------------------
+
+
+Sub Button1_Click()
+
+TimeStart = Now
+
+Worksheets("QC-XL Export").Select
+
+'Error Message When QC Server URL is not given
+If ActiveSheet.Cells(2, 2) = "" Then
+   MsgBox "Please Enter QC Server URL", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When Domain is not given
+If ActiveSheet.Cells(3, 2) = "" Then
+   MsgBox "Please Enter Domain Name", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When Project name is not given
+If ActiveSheet.Cells(4, 2) = "" Then
+   MsgBox "Please Enter Project Name", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When username is not given
+If ActiveSheet.Cells(5, 2) = "" Then
+   MsgBox "Please Enter UserName", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When Password is not given
+If ActiveSheet.Cells(6, 2) = "" Then
+   MsgBox "Please Enter Password", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When Test Case Folder Path is not given
+If ActiveSheet.Cells(7, 2) = "" Then
+   MsgBox "Please Enter Test Case Folder Path", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error Message When Sheet name is not given
+
+If ActiveSheet.Cells(8, 2) = "" Then
+   MsgBox "Please Enter SheetName", vbExclamation, "QC-XL Export"
+   Exit Sub
+End If
+
+'Error message displayed if a sheet with the given name already exists
+Dim sSheetName
+sSheetName = ActiveSheet.Cells(8, 2)
+Count = Sheets.Count
+    For k = 1 To Count
+           If Sheets(k).Name = sSheetName Then
+                 MsgBox "WorkSheet already exists. Please Input a new Sheetname", vbExclamation, "QC-XL Export"
+                 Exit Sub
+            End If
+        
+    Next k
+ 
+'Function call to Connect to Quality Center
+Call QCConnect
+'Retrieve Path from excel
+Dim sPath
+sPath = ActiveSheet.Cells(7, 2)
+
+Worksheets("QC-XL Export").Select
+
+'Function call to export test cases
+Call ExportTestCases(sPath)
+'Function call to disconnect the Quality Center connection
+
+TimeEnd = Now
+TotalTime = DateDiff("n", TimeStart, TimeEnd)
+MsgBox "Thanks for using the tool              " & vbCrLf & "Total steps Exported :" & steps & vbCrLf & "Total time taken :" & TotalTime & "Minute(s)", vbInformation, "QC-Xl Export"
+
+
+gQCConnection.Disconnect
+gQCConnection.Logout
+gQCConnection.ReleaseConnection
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+End Sub
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  PrintFields()
+'Function Description:  This function takes an Object as input and prints all the fields
+'-----------------------------------------------------------------------------------------------------
+Function PrintFields(oObject)
+Dim FieldsList, Field
+Set FieldsList = oObject.Fields
+Dim i
+i = 0
+ReDim Preserve aFieldList(0)
+For Each Field In FieldsList
+aFieldList(i) = Field
+i = i + 1
+ReDim Preserve aFieldList(i)
+Next
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+End Function
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  ExportTestCases()
+'Function Description:  This function takes the Path as input and prints all the Testcases
+'-----------------------------------------------------------------------------------------------------
+
+
+Function ExportTestCases(strNodeByPath)
+
+Worksheets("QC-XL Export").Select
+
+' Retrieve Sheetname from Excel
+Dim sSheetName
+sSheetName = ActiveSheet.Cells(8, 2)
+
+'Function Call to add SheetName
+Call AddSheet(sSheetName)
+
+Worksheets(sSheetName).Select
+
+'Column Headers for default fields
+ActiveSheet.Cells(1, 1) = "Subject (Folder Name)"
+ActiveSheet.Cells(1, 2) = "Test Name (Manual Test Name)"
+ActiveSheet.Cells(1, 3) = "Test Description"
+ActiveSheet.Cells(1, 4) = "Designer" 'sDesigner
+ActiveSheet.Cells(1, 5) = "Status"  'Status
+ActiveSheet.Cells(1, 6) = "TestId" 'sTestId
+ActiveSheet.Cells(1, 7) = "TestType" 'sType
+ActiveSheet.Cells(1, 8) = "Step Name"
+ActiveSheet.Cells(1, 9) = "Step Description"
+ActiveSheet.Cells(1, 10) = "Expected Result"
+
+Dim TreeMgr, TestTree, TestFactory, TestList
+Set TreeMgr = gQCConnection.TreeManager
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+
+'Specify the folder path in TestPlan, all the tests under that folder will be exported.
+Set TestTree = TreeMgr.NodeByPath(strNodeByPath)
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+Set TestFactory = TestTree.TestFactory
+Set TestList = TestFactory.NewList("") 'Get a list of all from node.
+
+'Specify Array to contain all nodes of subject tree.
+Dim NodesList()
+ReDim Preserve NodesList(0)
+'Assign root node of subject tree as NodeByPath node.
+NodesList(0) = TestTree.Path
+
+'Gets subnodes and return list in array NodesList
+Call GetNodesList(TestTree, NodesList)
+
+Dim Row, Node, TestCase
+Row = 2
+For Each Node In NodesList
+    Set TestTree = TreeMgr.NodeByPath(Node)
+    Set TestFactory = TestTree.TestFactory
+    Set TestList = TestFactory.NewList("") 'Get a list of all from node.
+
+    'Iterate through all the tests.
+    For Each TestCase In TestList
+        Dim DesignStepFactory, DesignStep, DesignStepList
+        Set DesignStepFactory = TestCase.DesignStepFactory
+        Set DesignStepList = DesignStepFactory.NewList("")
+
+        'Function Call to PrintFields()
+        Call PrintFields(DesignStepFactory)
+
+        If DesignStepList.Count = 0 Then
+        'Save a specified set of fields.
+
+            ActiveSheet.Cells(Row, 1).Value = TestCase.Field("TS_Subject").Path
+            ActiveSheet.Cells(Row, 2).Value = TestCase.Field("TS_NAME")
+            ActiveSheet.Cells(Row, 3).Value = TestCase.Field("TS_DESCRIPTION")
+            ActiveSheet.Cells(Row, 4).Value = TestCase.Field("TS_RESPONSIBLE")
+            ActiveSheet.Cells(Row, 5).Value = TestCase.Field("TS_STATUS")
+            ActiveSheet.Cells(Row, 6).Value = TestCase.Field("TS_TEST_ID") 'Test-Id
+            ActiveSheet.Cells(Row, 7).Value = TestCase.Field("TS_TYPE") 'Type
+            Row = Row + 1
+        Else
+            For Each DesignStep In DesignStepList
+                'Save a specified set of fields.
+                ' Print all fields only for Step 1
+                If DesignStep.StepName = "Step 1" Or DesignStep.StepName = "Step1" Then
+                    ActiveSheet.Cells(Row, 1).Value = stripHTML(TestCase.Field("TS_Subject").Path)
+                    ActiveSheet.Cells(Row, 2).Value = stripHTML(TestCase.Field("TS_NAME"))
+                    ActiveSheet.Cells(Row, 3).Value = stripHTML(TestCase.Field("TS_DESCRIPTION"))
+                    ActiveSheet.Cells(Row, 4).Value = stripHTML(TestCase.Field("TS_RESPONSIBLE"))
+                    ActiveSheet.Cells(Row, 5).Value = stripHTML(TestCase.Field("TS_STATUS"))
+                    ActiveSheet.Cells(Row, 6).Value = stripHTML(TestCase.Field("TS_TEST_ID")) 'Test-Id
+                    ActiveSheet.Cells(Row, 7).Value = stripHTML(TestCase.Field("TS_TYPE")) 'Type
+                    'Save the specified design steps.
+                    ActiveSheet.Cells(Row, 8).Value = stripHTML(DesignStep.StepName)
+                    ActiveSheet.Cells(Row, 9).Value = stripHTML(DesignStep.StepDescription)
+                    ActiveSheet.Cells(Row, 10).Value = stripHTML(DesignStep.StepExpectedResult)
+                    Row = Row + 1
+                    j = 0
+
+                    'Print User-Defined fields
+                    For Each Field In aFieldList
+                        If Field <> "DS_STEP_NAME" And Field <> "DS_DESCRIPTION" And Field <> "DS_EXPECTED" And Field <> "DS_LINK_TEST" And Field <> "DS_ATTACHMENT" And Field <> "DS_HAS_PARAMS" And Field <> "DS_LINK_TEST" And Field <> "DS_ID" And Field <> "DS_STEP_ORDER" And Field <> "DS_TEST_ID" And Field <> "" Then
+                            ActiveSheet.Cells(1, 11 + j) = Field
+                            ActiveSheet.Cells(Row, 11 + j).Value = stripHTML(DesignStep(Field))
+                            j = j + 1
+                        End If
+                    Next
+                Else
+                    ActiveSheet.Cells(Row, 8).Value = stripHTML(DesignStep.StepName)
+                    ActiveSheet.Cells(Row, 9).Value = stripHTML(DesignStep.StepDescription)
+                    ActiveSheet.Cells(Row, 10).Value = stripHTML(DesignStep.StepExpectedResult)
+                    j = 0
+    
+                    'Print User-Defined fields
+                    For Each Field In aFieldList
+                        If Field <> "DS_STEP_NAME" And Field <> "DS_DESCRIPTION" And Field <> "DS_EXPECTED" And Field <> "DS_LINK_TEST" And Field <> "DS_ATTACHMENT" And Field <> "DS_HAS_PARAMS" And Field <> "DS_LINK_TEST" And Field <> "DS_ID" And Field <> "DS_STEP_ORDER" And Field <> "DS_TEST_ID" And Field <> "" Then
+                            ActiveSheet.Cells(1, 11 + j) = Field
+                            ActiveSheet.Cells(Row, 11 + j).Value = stripHTML(DesignStep(Field))
+                            j = j + 1
+                        End If
+                    Next
+                    Row = Row + 1
+
+                End If
+            Next
+        End If
+    Next
+
+Next
+'Format for the first row
+With ActiveSheet.Range("A1", Cells(1, 10 + j))
+.Font.Name = "Arial"
+.Font.FontStyle = "Bold"
+.Font.Size = 10
+.Font.Bold = True
+.HorizontalAlignment = xlCenter
+.VerticalAlignment = xlCenter
+.Interior.ColorIndex = 15 'Light Grey
+End With
+
+Excel.Columns.AutoFit
+
+'Set the Column width for the following columns.
+Excel.Columns("C").ColumnWidth = 50 'Description
+Excel.Columns("I").ColumnWidth = 80 'Step Description(Action)
+Excel.Columns("J").ColumnWidth = 80 'Expected Result
+
+'Set Auto Filter mode.
+If Not ActiveSheet.AutoFilterMode Then
+ActiveSheet.Range("A1").AutoFilter
+End If
+
+steps = ActiveSheet.UsedRange.Rows.Count - 1
+Set DesignStepList = Nothing
+Set DesignStepFactory = Nothing
+Set TestList = Nothing
+Set TestFactory = Nothing
+Set TestTree = Nothing
+Set TreeMgr = Nothing
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+
+End Function
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  AddSheet()
+'Function Description:  This function takes the Sheetname as input and adds a new sheet to the workbook
+'-----------------------------------------------------------------------------------------------------
+
+
+Sub AddSheet(sSheetName)
+
+Sheets.Add Type:="Worksheet"
+   With ActiveSheet
+       .Move after:=Worksheets(Worksheets.Count)
+       .Name = sSheetName
+   End With
+End Sub
+
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  GetNodesList()
+'Function Description:  This function retrieves the nodes list
+'-----------------------------------------------------------------------------------------------------
+Function GetNodesList(ByVal Node, ByRef NodesList)
+Dim i
+'Run on all children nodes
+For i = 1 To Node.Count
+Dim NewUpper
+'Add more space to dynamic array
+NewUpper = UBound(NodesList) + 1
+ReDim Preserve NodesList(NewUpper)
+
+'Add node path to array
+NodesList(NewUpper) = Node.Child(i).Path
+
+'If current node has a child then get path on child nodes too.
+If Node.Child(i).Count >= 1 Then
+Call GetNodesList(Node.Child(i), NodesList)
+End If
+Next
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+End Function
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  stripHTML()
+'Function Description:  This function removes HTML code and unwanted characters
+'-----------------------------------------------------------------------------------------------------
+Function stripHTML(strHTML)
+'Strips the HTML tags from strHTML
+Dim objRegExp, strOutput
+Set objRegExp = New RegExp
+
+objRegExp.IgnoreCase = True
+objRegExp.Global = True
+objRegExp.Pattern = "<(.|\n)+?>"
+
+'Replace all line breaks with VB line breaks
+strOutput = Replace(strHTML, "<br>", vbLf)
+
+'Replace all HTML tag matches with the empty string
+strOutput = objRegExp.Replace(strOutput, "")
+strOutput = Replace(strOutput, "<html><body>", "")
+strOutput = Replace(strOutput, "</body></html>", "")
+
+'Replace all &lt;, &gt;, and &quot; with <, >, and "
+strOutput = Replace(strOutput, "&lt;", "<")
+strOutput = Replace(strOutput, "&gt;", ">")
+strOutput = Replace(strOutput, "&quot;", Chr(34))
+strOutput = Replace(strOutput, Chr(13), "")
+strOutput = Replace(strOutput, Chr(10), "")
+'strOutput = Replace(strOutput, "@#$", vbCrLf)
+
+Set objRegExp = Nothing
+
+stripHTML = strOutput 'Return the value of strOutput
+
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+
+End Function
+
+'-----------------------------------------------------------------------------------------------------
+'Function Name       :  Truncate()
+'Function Description:  This function truncates text so that excel cell length is 32767
+'-----------------------------------------------------------------------------------------------------
+Function Truncate(strText)
+'Excel Max Cell Length = 32,767
+Dim sNotice
+sNotice = vbLf & "Contents Truncated..."
+
+If Len(strText) > 32767 Then
+strText = Left(strText, 32767 - Len(sNotice))
+strText = strText & sNotice
+End If
+
+Truncate = strText
+If Err.Number <> 0 Then
+MsgBox Err.Description
+End If
+End Function
