@@ -1,0 +1,43 @@
+package amazon;
+import org.openqa.selenium.*;
+import org.openqa.selenium.firefox.FirefoxDriver;
+
+public class AmazonEcommerce {
+
+	public static void main(String[] args) throws Exception{
+		// TODO Auto-generated method stub
+		WebDriver driver=new FirefoxDriver();  
+	      //System.out.println("Hello Flipkart...");  
+	      driver.get("http://Flipkart.com");    
+	      
+		driver.findElement(By.name("q")).sendKeys("QT4000/15");
+		driver.findElement(By.name("q")).sendKeys(Keys.ENTER);
+
+		driver.findElement(By.xpath("//img[@alt='Philips QT4000/15 Trimmer For Men']")).click();
+		
+		Thread.sleep(5000);
+		driver.findElement(By.xpath("//input[@class='pincode fk-input vmiddle fk-pincode-text-fld']")).sendKeys("560100");
+		
+		//driver.findElement(By.name("pincode")).sendKeys("560111");
+		driver.findElement(By.name("pincode")).sendKeys(Keys.ENTER);
+		
+		Thread.sleep(5000);
+		int availability = driver.findElements(By.xpath("//div[@class='messages serviceable']")).size();
+		//System.out.println(availability);
+		if (availability > 0)
+		{
+			System.out.println("Item is available in given Pincode area");
+		}
+		else
+		{
+			System.out.println("Item is not available in given Pincode area");
+		}
+				
+		String availRate = driver.findElement(By.xpath("//span[@class='selling-price omniture-field']")).getText();
+		//String b = driver.findElement(By.xpath("//span[@data-omnifield='eVar48']")).getText();
+		System.out.println("Product price : " + availRate);
+		//System.out.println("availability" + b);
+		
+	}
+
+}
